@@ -1,0 +1,121 @@
+#include <ArduinoMotorCarrier.h>
+
+const int leftTrigPin = A2;
+const int leftEchoPin = A3;
+
+const int rightTrigPin = A7;
+const int rightEchoPin = A6;
+
+enum RobotState {
+  STATE_FORWARD,
+  STATE_TURN_LEFT,
+  STATE_TURN_RIGHT,
+  STATE_STOP
+};
+
+RobotState currentState = STATE_FORWARD;
+
+void setup() {
+  Serial.begin(115200);
+  controller.begin();
+  
+  // Set the trig pins as OUTPUT
+  pinMode(leftTrigPin, OUTPUT);
+  pinMode(rightTrigPin, OUTPUT);
+
+  // Set the echo pins as INPUT
+  pinMode(leftEchoPin, INPUT);
+  pinMode(rightEchoPin, INPUT);
+
+  controller.ping();
+  delay(50);
+}
+
+void loop() {
+  float leftDistance = measureDistance(leftTrigPin, leftEchoPin);
+  float rightDistance = measureDistance(rightTrigPin, rightEchoPin);
+
+  // Serial.print("Left: ");
+  // Serial.print(leftDistance, 1);
+  // Serial.print(" ");
+  // Serial.print("Right: ");
+  // Serial.println(rightDistance, 1);
+
+  // Update the state based on obstacle detection
+  updateState(leftDistance, rightDistance);
+
+  // Perform actions based on the current state
+  performStateAction();
+
+  // Delay for readability
+  delay(100);
+}
+
+void updateState(float leftDistance, float rightDistance) {
+  if (leftDistance < 15 || rightDistance < 15) {
+    if (leftDistance > 15 && rightDistance < 15) {
+      currentState = STATE_TURN_LEFT;
+    } else if (leftDistance < 15 && rightDistance > 15) {
+      currentState = STATE_TURN_RIGHT;
+    } else {
+      currentState = STATE_STOP;
+    }
+  } else {
+    currentState = STATE_FORWARD;
+  }
+}
+
+void performStateAction() {
+  switch (currentState) {
+    case STATE_FORWARD:
+      goStraight();
+      break;
+    case STATE_TURN_LEFT:
+      turnLeft();
+      delay(1000); // Delay to complete the turn
+      break;
+    case STATE_TURN_RIGHT:
+      turnRight();
+      delay(1000); // Delay to complete the turn
+      break;
+    case STATE_STOP:
+      stopMotors();
+      break;
+  }
+}
+
+float measureDistance(int trigPin, int echoPin) {
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(2);
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPin, LOW);
+
+  unsigned long duration = pulseIn(echoPin, HIGH);
+  float distance = (duration * 0.0343) / 2;
+  return distance;
+}
+
+void goStraight() {
+  M1.setDuty(25); // Right Motor
+  M2.setDuty(25); // Left Motor
+  Serial.println("Straight");
+}
+
+void stopMotors() {
+  M1.setDuty(0);
+  M2.setDuty(0);
+  Serial.println("Stopped");
+}
+
+void turnLeft() {
+  M1.setDuty(25);
+  M2.setDuty(5);
+  Serial.println("Left");
+}
+
+void turnRight() {
+  M1.setDuty(5);
+  M2.setDuty(25);
+  Serial.println("Right");
+}
